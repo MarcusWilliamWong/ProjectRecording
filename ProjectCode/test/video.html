@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+</head>
+<body>
+	<video id="camerawindow" autoplay playsinline muted></video>
+	<!-- mute属性关闭了本地的声音播放，但是音频仍会被录取并传输出去 -->
+	<button id="camerabtn">Open local camera</button>
+	<p>Important API "getUserMedia"</p>
+</body>
+<script>
+	// 自定义约束条件，因为getUserMedia函数需要参数constraints
+	// 该对象指定了请求的媒体类型和相对应的参数
+	// 同时打开语音和摄像头
+	const constraints = {
+		audio:true,
+		video:true
+	};
+
+	// 处理成功打开摄像头
+	function handleSuccess(stream) {
+		// 获取视频播放的控件
+		const video = document.querySelector("#camerawindow");
+		video.srcObject = stream;
+	}
+
+	// 处理未成功打开摄像头
+	function handleError(error) {
+		console.log("Open camera failed: " + error.name);
+	}
+
+	function onOpenCamera(e) {
+		navigator.mediaDevices.getUserMedia(constraints)
+		// then里处理正常情况，执行handleSuccess函数
+		.then(handleSuccess)
+		// catch捕捉异常
+		.catch(handleError);
+	}
+	// querySelector 输入CSS选择器的字符串，#表示用id选择组件
+	document.querySelector("#camerabtn").addEventListener("click", onOpenCamera)
+</script>
+</html>

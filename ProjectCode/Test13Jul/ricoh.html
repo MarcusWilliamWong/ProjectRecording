@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Ricoh Camera Stream</title>
+    <style>
+      video {
+        width: 100%;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <video autoplay></video>
+
+    <script>
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function (stream) {
+          var video = document.querySelector('video');
+          video.srcObject = stream;
+        })
+        .catch(function (error) {
+          console.log('Error accessing camera: ', error);
+        });
+
+			// navigator.mediaDevices.enumerateDevices()
+			// 	.then(function(devices) {
+			// 		devices.forEach(function(device) {
+			// 			console.log(device.kind + ": " + device.label + " id = " + device.deviceId);
+			// 		});})
+			// 	.catch(function(err) {
+			// 		console.log(err.name + ": " + err.message);
+			// 	});
+    </script>
+  </body>
+</html>

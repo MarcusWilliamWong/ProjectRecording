@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+</head>
+<body>
+	<audio id="mircrotag" autoplay controls></audio>
+	<button id="audiobtn">Open microphone</button>
+</body>
+<script>
+	const constraints = {
+		audio: true,
+		video: false
+	};
+
+	// 如果麦克风打开成功，会获取到音频流
+	function handleSuccess(stream) {
+		const microphone = document.querySelector("#mircrotag");
+		microphone.srcObject = stream;
+	}
+
+	function handleError(error) {
+		console.log("Open microphone failed:" + error);
+	}
+
+	// define handle function
+	function onOpenMicrophone(e) {
+		navigator.mediaDevices.getUserMedia(constraints).then(handleSuccess).catch(handleError);
+	}
+	// 给按钮绑定事件
+	document.querySelector("#audiobtn").addEventListener("click", onOpenMicrophone);
+</script>
+</html>
