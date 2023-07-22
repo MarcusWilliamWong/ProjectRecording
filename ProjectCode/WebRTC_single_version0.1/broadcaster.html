@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js" integrity="sha384-fKnu0iswBIqkjxrhQCTZ7qlLHOFEgNkRmK2vaO/LbTZSXdJfAu6ewRBdwHPhBo/H" crossorigin="anonymous"></script>
+    <title>Broadcaster</title>
+    <style>
+      video {
+        width: 300px;
+        height: 250px;
+      }
+    </style>
+</head>
+<body>
+    <!-- 显示视频流的 video 元素 -->
+    <video id="thetaVideo" autoplay muted></video>
+    <!-- 开始直播的按钮 -->
+    <button id="startLiveBtn" onclick="startLive()">start live</button>
+    <script>
+      // 存储所有的 peerConnection 对象
+      const peerConnections = {};
+      // WebRTC 配置
+      const config = {iceServers: [{"urls": "stun:stun.l.google.com:19302"}]};
+			// const config = {};
+
+      // 创建 Socket.IO 客户端
+      // const socket = io.connect('ws://172.16.1.14:8010');
+			// 5g ip, http-server
+			// const socket = io.connect('ws://192.168.0.59:8010');
+			const socket = io.connect('ws://192.168.3.28:8010');
+
+			// 与服务器建立连接时，告知服务器，连接进来的是直播客户端
+			socket.on("connect", () => {
+				console.log("connected to server, local socket id:" + socket.id);
+				socket.emit("newBroad");
+			});
+      // 监听来自服务器的 answer 事件
+      socket.on("answer", (id, description) => {
+        peerConnections[id].setRemoteDescription(description);
+      });
+
+      // 监听来自服务器的 watcher 事件
+			// 该消息说明两边都以准备好，开始媒体协商，交换SDP，并交换ICE
+      socket.on("watcher", id => {
+        // 创建新的 peerConnection 对象
+        const peerConnection = new RTCPeerConnection(config);
+        peerConnections[id] = peerConnection;
+
+        // 将本地视频流添加到 peerConnection 中
+        let stream = videoElement.srcObject;
+        stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+        // 监听 ICE candidate 事件
+        peerConnection.onicecandidate = event => {
+          if (event.candidate) {
+            socket.emit("candidate", id, event.candidate);
+          }
+        };
+
+        // 创建 offer 并将其设置为本地描述
+        peerConnection
+          .createOffer()
+          .then(sdp => peerConnection.setLocalDescription(sdp))
+          .then(() => {
+						console.log("SDP: broadcaster send offer "+ JSON.stringify(peerConnection.localDescription));
+            console.log(socket.id);
+						socket.emit("offer", id, peerConnection.localDescription);
+          });
+      });
+
+      // 监听来自服务器的 candidate 事件
+      socket.on("candidate", (id, candidate) => {
+        peerConnections[id].addIceCandidate(new RTCIceCandidate(candidate));
+      });
+
+      // 监听来自服务器的 disconnectPeer 事件
+      socket.on("disconnectPeer", id => {
+        peerConnections[id].close();
+        delete peerConnections[id];
+      });
+
+      // 关闭 Socket.IO 连接
+      window.onunload = window.onbeforeunload = () => {
+        socket.close();
+      };
+
+      // 获取 video 元素
+      const videoElement = document.querySelector("video");
+		
+		// 开始直播的函数，用按钮触发，发送broadcaster指令
+		function startLive(){
+      // 如果已经有视频流在播放，停止它
+      if (window.stream) {
+        window.stream.getTracks().forEach(track => {
+          track.stop();
+        });
+      }
+			document.getElementById("startLiveBtn").style.display = "none";
+      // 获取媒体流
+      return navigator.mediaDevices
+              .getUserMedia({ video: true, audio: true })
+              .then(gotStream)
+              .catch(handleError);
+    }
+
+    // 获取媒体流成功后的回调函数
+    function gotStream(stream) {
+      window.stream = stream;
+        
+      videoElement.srcObject = stream;
+			// 获取视频流后，发送"broadcaster"指令
+			console.log("Clicked btn, ready to broadcast live video, id:" + socket.id);
+      socket.emit("broadcaster");
+    }
+
+    // 获取媒体流失败后的回调函数
+    function handleError(error) {
+      console.error("Error: ", error);
+    }
+    </script>
+</body>
+</html>
