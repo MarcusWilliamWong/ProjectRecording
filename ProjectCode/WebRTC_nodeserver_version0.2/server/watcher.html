@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<script src="https://cdn.socket.io/4.4.1/socket.io.min.js" integrity="sha384-fKnu0iswBIqkjxrhQCTZ7qlLHOFEgNkRmK2vaO/LbTZSXdJfAu6ewRBdwHPhBo/H" crossorigin="anonymous"></script>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+	<title>Watcher</title>
+	<style>
+		video {
+			width: 450px;
+			height: 375px;
+		}
+	</style>
+</head>
+<body>
+	<div style="text-align:center">
+		<video id="thetaVideo" controls playsinline></video>
+		<!-- <button id="forBtn" onclick="forCMD()">for</button>
+		<button id="backBtn" onclick="backCMD()">backBtn</button>
+		<button id="leftBtn" onclick="leftCMD()">left</button>
+		<button id="rightBtn" onclick="rightCMD()">rightBtn</button> -->
+	</div>
+	<div class="container">
+		<div class="row">
+			<div class="col-md-12 text-center">
+				<button id="forBtn" class="btn btn-primary btn-lg">Fore</button>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-4 text-center">
+				<!-- 空div占位 -->
+				<div></div>
+			</div>
+			<div class="col-md-2 text-center">
+				<button id="backBtn" class="btn btn-primary btn-lg">Back</button>
+			</div>
+			<div class="col-md-2 text-center">
+				<button id="leftBtn" class="btn btn-primary btn-lg">Left</button>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-12 text-center">
+				<button id="rightBtn" class="btn btn-primary btn-lg">Right</button>
+			</div>
+		</div>
+	</div>
+	<script>
+		let peerConnection; // 存储 peerConnection 对象
+		const config = {iceServers: [{"urls": "stun:stun.l.google.com:19302"}]}; // WebRTC 配置
+		// const config = {};
+
+		const socket = io('ws://172.16.1.237:8010'); // 创建 Socket.IO 客户端
+		// 5g ip
+		// const socket = io.connect('ws://192.168.0.59:8010');
+		// const socket = io.connect('ws://172.20.10.6:8010');
+
+		const video = document.querySelector("video"); // 获取 video 元素
+
+		// 监听 Socket.IO 的 connect 事件
+		socket.on("connect", () => {
+			// 与服务器建立连接时，告知服务器，连接进来的是直播客户端
+			console.log("connected to server, local socket id:" + socket.id);
+			socket.emit("newWatcher"); // 发送 watcher 事件给服务器
+		});
+
+		// 监听来自服务器的 broadcaster 事件
+		socket.on("broadcaster", (broadcasterID) => {
+			console.log("Notice: " + JSON.stringify(broadcasterID) + " broadcaster luanched live")
+			socket.emit("watcher", socket.id, broadcasterID); // 发送 watcher 事件给服务器
+		});
+
+		// 监听来自服务器的 offer 事件
+		socket.on("offer", (id, description) => {
+			peerConnection = new RTCPeerConnection(config); // 创建新的 peerConnection 对象
+			peerConnection
+				.setRemoteDescription(description) // 设置远程描述
+				.then(() => peerConnection.createAnswer()) // 创建 answer
+				.then(sdp => peerConnection.setLocalDescription(sdp)) // 设置本地描述
+				.then(() => {
+					socket.emit("answer", id, peerConnection.localDescription); // 发送 answer 给服务器
+				});
+			peerConnection.ontrack = event => {
+				video.srcObject = event.streams[0]; // 将视频流添加到 video 元素中
+
+				video.onfullscreenerror = function () {
+					console.log("cannot switch into full-screen mode");
+				}
+				video.onclick = function () {
+					video.requestFullscreen();  // requestFullScreen必须用户来操作才能全屏
+				};
+			};
+			peerConnection.onicecandidate = event => {
+				if (event.candidate) {
+					socket.emit("candidate", id, event.candidate); // 发送 ICE candidate 给服务器
+				}
+			};
+		});
+
+		// 监听来自服务器的 candidate 事件
+		socket.on("candidate", (id, candidate) => {
+			peerConnection
+				.addIceCandidate(new RTCIceCandidate(candidate)) // 添加 ICE candidate
+				.catch(e => console.error(e));
+		});
+
+		// 关闭 Socket.IO 连接和 peerConnection 对象
+		window.onunload = window.onbeforeunload = () => {
+			socket.close();
+			peerConnection.close();
+		};
+	</script>
+	
+	<script>
+		const jackal_socket = new WebSocket("ws://172.16.1.237:8888");
+		jackal_socket.onopen = function(event) {
+			console.log("WebSocket connection established.");
+			jackal_socket.send("Hello, Jackal!");
+		};
+
+		let forBtn = document.getElementById("forBtn");
+		forBtn.addEventListener("click", function (e){
+			console.log("f");
+			jackal_socket.send("for");
+		})
+		let backBtn = document.getElementById("backBtn");
+		backBtn.addEventListener("click", function (e){
+			console.log("b");
+			jackal_socket.send("back");
+		})
+		let leftBtn = document.getElementById("leftBtn");
+		leftBtn.addEventListener("click", function (e){
+			console.log("l");
+			jackal_socket.send("left");
+		})
+		let rightBtn = document.getElementById("rightBtn");
+		rightBtn.addEventListener("click", function (e){
+			console.log("r");
+			jackal_socket.send("right");
+		})
+	</script>
+</body>
+</html>
